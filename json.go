@@ -1,10 +1,7 @@
-package option
+package json
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
-	"github.com/bitly/go-simplejson"
 	"reflect"
 	"strings"
 )
@@ -23,70 +20,61 @@ import (
 */
 
 type (
-	Options struct {
-		name  string
-		child interface{}
+	Json struct {
+		data json_value
 	}
 )
 
-func NewOptions() *Options {
-	return &Options{child: map[string]*Options{}}
+func NewJson() *Json {
+	return &Json{&json_object{}}
 }
 
-func (o *Options) Json() (ret string, err error) {
-	var d []byte
-	if d, err = json.Marshal(o); err == nil {
-		ret = string(d)
+func FromString(str string) (ret *Json, err error) {
+	use := make(map[string]interface{})
+	if err = json.Unmarshal([]byte(str), &use); err == nil {
+		ret = FromMap(use)
 	}
 	return
 }
 
-func (o *Options) MarshalJSON() (ret []byte, err error) {
-	buf := bytes.NewBuffer([]byte{})
-	buf.WriteString("{")
-	if err = o.marshal_json(buf); err == nil {
-		buf.WriteString("}")
-		ret = buf.Bytes()
-	}
-	return
+func FromFile(str string) (*Json, error) {
+	return nil, nil
 }
 
-func (o *Options) Get(path ...string) interface{} {
-	if o == nil || len(path) == 0 {
-		return nil
+func FromMap(src map[string]interface{}) *Json {
+	return nil
+}
+
+func (j *Json) ToJson() (ret []byte, err error) {
+	return json.Marshal(j.data)
+}
+
+func (j *Json) ToJson2() string {
+	if d, e := j.ToJson(); e != nil {
+		return ""
+	} else {
+		return string(d)
 	}
-	current := o
+}
+
+func (j *Json) Get(path ...string) *Json {
+	ret := j
 	for _, k := range path {
-		if current = current.get_child_by_key(k, false); current == nil {
-			return nil
+		ret = ret.get_child_by_key(k)
+		if ret != nil {
+			return ret
 		}
 	}
-	return current
+	return ret
 }
 
-func (o *Options) Exist(path ...string) bool {
-	return o.Get(path...) != nil
+func (j *Json) Exist(path ...string) bool {
+	return j.Get(path...) != nil
 }
 
-func (o *Options) Key() string {
-	return o.name
-}
-
-func (o *Options) String() string {
-	if use, exist := o.get_value(); exist {
-		switch v := use.(type) {
-		case string:
-			return v
-		default:
-			return fmt.Sprint(v)
-		}
-	}
-	return ""
-}
-
-func (o *Options) Int() (ret int, ok bool) {
+func (j *Json) Int() (ret int, ok bool) {
 	ok = true
-	if use, exist := o.get_value(); exist {
+	if use, exist := j.get_value(); exist {
 		switch v := use.(type) {
 		case float32, float64:
 			ret = int(reflect.ValueOf(v).Float())
@@ -102,9 +90,9 @@ func (o *Options) Int() (ret int, ok bool) {
 	return
 }
 
-func (o *Options) UInt() (ret uint, ok bool) {
+func (j *Json) UInt() (ret uint, ok bool) {
 	ok = true
-	if use, exist := o.get_value(); exist {
+	if use, exist := j.get_value(); exist {
 		switch v := use.(type) {
 		case float32, float64:
 			ret = uint(reflect.ValueOf(v).Float())
@@ -120,9 +108,9 @@ func (o *Options) UInt() (ret uint, ok bool) {
 	return
 }
 
-func (o *Options) Int64() (ret int64, ok bool) {
+func (j *Json) Int64() (ret int64, ok bool) {
 	ok = true
-	if use, exist := o.get_value(); exist {
+	if use, exist := j.get_value(); exist {
 		switch v := use.(type) {
 		case float32, float64:
 			ret = int64(reflect.ValueOf(v).Float())
@@ -138,9 +126,9 @@ func (o *Options) Int64() (ret int64, ok bool) {
 	return
 }
 
-func (o *Options) UInt64() (ret uint64, ok bool) {
+func (j *Json) UInt64() (ret uint64, ok bool) {
 	ok = true
-	if use, exist := o.get_value(); exist {
+	if use, exist := j.get_value(); exist {
 		switch v := use.(type) {
 		case float32, float64:
 			ret = uint64(reflect.ValueOf(v).Float())
@@ -156,9 +144,9 @@ func (o *Options) UInt64() (ret uint64, ok bool) {
 	return
 }
 
-func (o *Options) Float() (ret float32, ok bool) {
+func (j *Json) Float() (ret float32, ok bool) {
 	ok = true
-	if use, exist := o.get_value(); exist {
+	if use, exist := j.get_value(); exist {
 		switch v := use.(type) {
 		case float32, float64:
 			ret = float32(reflect.ValueOf(v).Float())
@@ -174,9 +162,9 @@ func (o *Options) Float() (ret float32, ok bool) {
 	return
 }
 
-func (o *Options) Float64() (ret float64, ok bool) {
+func (j *Json) Float64() (ret float64, ok bool) {
 	ok = true
-	if use, exist := o.get_value(); exist {
+	if use, exist := j.get_value(); exist {
 		switch v := use.(type) {
 		case float32, float64:
 			ret = float64(reflect.ValueOf(v).Float())
@@ -192,9 +180,9 @@ func (o *Options) Float64() (ret float64, ok bool) {
 	return
 }
 
-func (o *Options) Bool() (ret bool, ok bool) {
+func (j *Json) Bool() (ret bool, ok bool) {
 	ok = true
-	if use, exist := o.get_value(); exist {
+	if use, exist := j.get_value(); exist {
 		switch v := use.(type) {
 		case float32, float64:
 			ret = reflect.ValueOf(v).Float() != 0
@@ -220,51 +208,64 @@ func (o *Options) Bool() (ret bool, ok bool) {
 	return
 }
 
-func (o *Options) ParseJsonFile(path string) error {
-	return nil
+func (j *Json) Set(key string, value interface{}) *Json {
+	switch v := j.data.(type) {
+	case nil:
+		j.data = create_json_object(key, value)
+	case *json_object:
+		v.set(key, value)
+	case *json_array:
+		v.set(key, value)
+	default:
+		j.data = create_json_array(v, create_json_object(key, value))
+	}
+	return j
 }
 
-func (o *Options) Set(key string, value interface{}) *Options {
-	o.name = key
-	return o
+func (j *Json) Append(key string, value interface{}) *Json {
+	switch v := j.data.(type) {
+	case nil:
+		j.data = create_json_object(key, value)
+	case *json_object:
+		v.append(key, value)
+	case *json_array:
+		v.set_or_append(key, value)
+	default:
+		j.data = create_json_array(v, create_json_object(key, value))
+	}
+	return j
 }
 
-func (o *Options) Replace(key string, value interface{}) *Options {
-	return o
+func (j *Json) SetByPath(value interface{}, path ...string) *Json {
+	l := len(path)
+	switch l {
+	case 0:
+	case 1:
+		j.Set(path[0], value)
+	default:
+		use := j.Get(path[:l-2]...)
+		if use != nil {
+			use.Set(path[l-1], value)
+		}
+	}
+	return j
 }
 
-func (o *Options) Append(key string, value interface{}) *Options {
-	return o
+func (j *Json) AppendByPath(value interface{}, path ...string) *Json {
+	l := len(path)
+	switch l {
+	case 0:
+	case 1:
+		j.Append(path[0], value)
+	default:
+		use := j.Get(path[:l-2]...)
+		if use != nil {
+			use.Append(path[l-1], value)
+		}
+	}
+	return j
 }
 
-func (o *Options) SetPath(value interface{}, path ...string) *Options {
-	return o
-}
-
-func (o *Options) ReplacePath(value interface{}, path ...string) *Options {
-	return o
-}
-
-func (o *Options) AppendPath(value interface{}, path ...string) *Options {
-	return o
-}
-
-func (o *Options) Merge(o2 *Options) *Options {
-	return o
-}
-
-func (o *Options) SetJson(j *simplejson.Json) *Options {
-	return o
-}
-
-func (o *Options) ParseJson(js string) error {
-	return o.parse_json_string(js)
-}
-
-func (o *Options) ParseIniFile(path string) error {
-	return nil
-}
-
-func (o *Options) ParseCommand() *Options {
-	return o
+func (j *Json) Merge(j2 *Json) *Json {
+	return j
 }
