@@ -12,7 +12,6 @@ type (
 		value interface{}
 	}
 	json_bool bool
-	json_null interface{}
 
 	json_array  []json_value
 	json_object map[string]json_value
@@ -39,31 +38,30 @@ func (j *Json) get_value() (ret interface{}, exist bool) {
 }
 
 func (j *Json) get_or_create_child(key string) *Json {
-	if j == nil {
-		return NewJson()
-	}
 	switch d := j.data.(type) {
-	case nil:
-		use := create_json_object(key, &json_object{})
-		j.data = use
-		return j.get_child_by_key(key)
 	case *json_object:
-		return &Json{d.get_child_by_key(key, true)}
+		obj := d.get_child_by_key(key, false)
+		if obj == nil {
+			obj = &json_object{}
+			d.set(key, obj)
+		}
+		return &Json{obj}
 	case *json_array:
-		return &Json{d.get_child_by_key(key, true)}
+		obj := d.get_child_by_key(key, false)
+		if obj == nil {
+			obj = &json_object{}
+			d.set(key, obj)
+		}
+		return &Json{obj}
 	default:
-		return nil
+		obj := &json_object{}
+		j.data = create_json_array(d, create_json_object(key, obj))
+		return &Json{obj}
 	}
-	return NewJson()
 }
 
 func (j *Json) get_child_by_key(key string) *Json {
-	if j == nil {
-		return nil
-	}
 	switch d := j.data.(type) {
-	case nil:
-		return nil
 	case *json_object:
 		obj := d.get_child_by_key(key, false)
 		if obj == nil {
@@ -76,7 +74,7 @@ func (j *Json) get_child_by_key(key string) *Json {
 		if obj == nil {
 			return nil
 		} else {
-			return &Json{}
+			return &Json{obj}
 		}
 	default:
 		return nil
@@ -166,34 +164,34 @@ func (src *json_array) get_child_by_key(key string, create bool) json_value {
 	return use.get_child_by_key(key, create)
 }
 
-func dump_array(indent string, a []interface{}) {
-	for _, v := range a {
-		switch use := v.(type) {
-		case map[string]interface{}:
-			fmt.Printf("%s(map[string]interface{})  =\r\n", indent)
-			dump_map(indent+"  ", &use)
+func transform_from_array(src []interface{}) *json_array {
+	ret := &json_array{}
+	for _, v := range src {
+		switch u := v.(type) {
 		case []interface{}:
-			fmt.Print("%s([]interface{}) =\r\n", indent)
-			dump_array(indent+"  ", use)
+			ret.append(transform_from_array(u))
+		case map[string]interface{}:
+			ret.append(transform_from_map(u))
 		default:
-			fmt.Printf("%s(%T) = %v\r\n", indent, use, use)
+			ret.append(v)
 		}
 	}
+	return ret
 }
 
-func dump_map(indent string, m *map[string]interface{}) {
-	for k, v := range *m {
-		switch use := v.(type) {
-		case map[string]interface{}:
-			fmt.Printf("%s(map[string]interface{}) - %s =\r\n", indent, k)
-			dump_map(indent+"  ", &use)
+func transform_from_map(src map[string]interface{}) json_value {
+	ret := &json_object{}
+	for k, v := range src {
+		switch u := v.(type) {
 		case []interface{}:
-			fmt.Printf("%s([]interface{}) - %s =", indent, k)
-			dump_array(indent+"  ", use)
+			ret.set(k, transform_from_array(u))
+		case map[string]interface{}:
+			ret.set(k, transform_from_map(u))
 		default:
-			fmt.Printf("%s(%T) - %s = %v\r\n", indent, use, k, use)
+			ret.set(k, v)
 		}
 	}
+	return ret
 }
 
 func TestJson() {

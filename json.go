@@ -2,6 +2,7 @@ package json
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -38,11 +39,12 @@ func FromString(str string) (ret *Json, err error) {
 }
 
 func FromFile(str string) (*Json, error) {
-	return nil, nil
+	return NewJson(), nil
 }
 
 func FromMap(src map[string]interface{}) *Json {
-	return nil
+	data := transform_from_map(src)
+	return &Json{data}
 }
 
 func (j *Json) ToJson() (ret []byte, err error) {
@@ -60,9 +62,8 @@ func (j *Json) ToJson2() string {
 func (j *Json) Get(path ...string) *Json {
 	ret := j
 	for _, k := range path {
-		ret = ret.get_child_by_key(k)
-		if ret != nil {
-			return ret
+		if ret = ret.get_child_by_key(k); ret == nil {
+			return nil
 		}
 	}
 	return ret
@@ -210,8 +211,6 @@ func (j *Json) Bool() (ret bool, ok bool) {
 
 func (j *Json) Set(key string, value interface{}) *Json {
 	switch v := j.data.(type) {
-	case nil:
-		j.data = create_json_object(key, value)
 	case *json_object:
 		v.set(key, value)
 	case *json_array:
@@ -224,8 +223,6 @@ func (j *Json) Set(key string, value interface{}) *Json {
 
 func (j *Json) Append(key string, value interface{}) *Json {
 	switch v := j.data.(type) {
-	case nil:
-		j.data = create_json_object(key, value)
 	case *json_object:
 		v.append(key, value)
 	case *json_array:
@@ -236,6 +233,14 @@ func (j *Json) Append(key string, value interface{}) *Json {
 	return j
 }
 
+func (j *Json) SetValue(value interface{}) *Json {
+	return j
+}
+
+func (j *Json) AppendValue(value interface{}) *Json {
+	return j
+}
+
 func (j *Json) SetByPath(value interface{}, path ...string) *Json {
 	l := len(path)
 	switch l {
@@ -243,7 +248,12 @@ func (j *Json) SetByPath(value interface{}, path ...string) *Json {
 	case 1:
 		j.Set(path[0], value)
 	default:
-		use := j.Get(path[:l-2]...)
+		use := j
+		fmt.Println(&use)
+		for i := 0; use != nil && i < l-1; i++ {
+			use = use.get_or_create_child(path[i])
+			fmt.Println(&use)
+		}
 		if use != nil {
 			use.Set(path[l-1], value)
 		}
@@ -258,7 +268,12 @@ func (j *Json) AppendByPath(value interface{}, path ...string) *Json {
 	case 1:
 		j.Append(path[0], value)
 	default:
-		use := j.Get(path[:l-2]...)
+		use := j
+		fmt.Println(&use)
+		for i := 0; use != nil && i < l-1; i++ {
+			use = use.get_or_create_child(path[i])
+			fmt.Println(&use)
+		}
 		if use != nil {
 			use.Append(path[l-1], value)
 		}
