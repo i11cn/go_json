@@ -1,3 +1,22 @@
+/*
+这个json包在处理json数据时，不需要和预先定义的struct对应，
+而是将数据映射成了map和数组，通过map和数组直接操作数据
+
+使用方法如下：
+	import "github.com/i11cn/go_json"
+	...
+
+	j = json.NewJson() // 此处会创建一个没有数据的空Json结构
+	j, err = json.FromString(`{"test":10, "other":"字符串"}`) // 此处使用给定的json字符串构造一个Json结构
+	j, err = json.FromFile("config.json") // 此处从文件config.json中读取内容，构造一个Json结构
+	...
+
+	if j.Exist("test", "sub1") { // 检查test子节点下的sub1子节点是否存在
+		sub := j.Get("test", "sub1") // 获取test节点下的sub1节点下的内容，并且构造成Json结构返回
+		sub.Int() // 将该节点中的内容
+	}
+
+*/
 package json
 
 import (
@@ -33,9 +52,9 @@ func NewJson() *Json {
 }
 
 func FromString(str string) (ret *Json, err error) {
-	use := make(map[string]interface{})
+	var use interface{}
 	if err = json.Unmarshal([]byte(str), &use); err == nil {
-		ret = FromMap(use)
+		ret = FromObject(use)
 	}
 	return
 }
@@ -49,15 +68,28 @@ func FromFile(str string) (ret *Json, err error) {
 	if data, err = ioutil.ReadAll(file); err != nil {
 		return
 	}
-	use := make(map[string]interface{})
+	var use interface{}
 	if err = json.Unmarshal(data, &use); err != nil {
 		return
 	}
-	return FromMap(use), nil
+	return FromObject(use), nil
 }
 
 func FromMap(src map[string]interface{}) *Json {
 	data := transform_from_map(src)
+	return &Json{data}
+}
+
+func FromObject(src interface{}) *Json {
+	var data json_value
+	switch s := src.(type) {
+	case []interface{}:
+		data = transform_from_array(s)
+	case map[string]interface{}:
+		data = transform_from_map(s)
+	default:
+		data = create_json_array(s)
+	}
 	return &Json{data}
 }
 
