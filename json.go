@@ -2,7 +2,9 @@ package json
 
 import (
 	"encoding/json"
-	//"fmt"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"strings"
 )
@@ -38,8 +40,20 @@ func FromString(str string) (ret *Json, err error) {
 	return
 }
 
-func FromFile(str string) (*Json, error) {
-	return NewJson(), nil
+func FromFile(str string) (ret *Json, err error) {
+	var file *os.File
+	if file, err = os.Open(str); err != nil {
+		return
+	}
+	var data []byte
+	if data, err = ioutil.ReadAll(file); err != nil {
+		return
+	}
+	use := make(map[string]interface{})
+	if err = json.Unmarshal(data, &use); err != nil {
+		return
+	}
+	return FromMap(use), nil
 }
 
 func FromMap(src map[string]interface{}) *Json {
@@ -204,6 +218,23 @@ func (j *Json) Bool() (ret bool, ok bool) {
 		default:
 			ret = false
 			ok = false
+		}
+	}
+	return
+}
+
+func (j *Json) String() (ret string, ok bool) {
+	ok = true
+	if use, exist := j.get_value(); exist {
+		switch v := use.(type) {
+		case *json_array:
+			ok = false
+		case *json_object:
+			ok = false
+		case string:
+			ret = v
+		default:
+			ret = fmt.Sprint(v)
 		}
 	}
 	return

@@ -29,8 +29,21 @@ func create_json_object(key string, value interface{}) *json_object {
 }
 
 func (j *Json) get_value() (ret interface{}, exist bool) {
-	ret = j.data
-	exist = j.data != nil
+	ret = nil
+	exist = false
+	if d, ok := j.data.(*json_array); ok {
+		arr := []json_value(*d)
+		for _, v := range arr {
+			switch use := v.(type) {
+			case *json_array:
+			case *json_object:
+			default:
+				ret = use
+				exist = true
+				return
+			}
+		}
+	}
 	return
 }
 
