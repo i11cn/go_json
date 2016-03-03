@@ -2,7 +2,7 @@ package json
 
 import (
 	"encoding/json"
-	"fmt"
+	//"fmt"
 	"reflect"
 	"strings"
 )
@@ -209,6 +209,24 @@ func (j *Json) Bool() (ret bool, ok bool) {
 	return
 }
 
+func (j *Json) Array() []Json {
+	ret := []Json{}
+	if arr, ok := j.data.(*json_array); ok {
+		use := ([]json_value)(*arr)
+		for _, d := range use {
+			switch d.(type) {
+			case *json_array:
+				ret = append(ret, Json{d})
+			case *json_object:
+				ret = append(ret, Json{d})
+			default:
+				ret = append(ret, Json{create_json_array(d)})
+			}
+		}
+	}
+	return ret
+}
+
 func (j *Json) Set(key string, value interface{}) *Json {
 	switch v := j.data.(type) {
 	case *json_object:
@@ -233,11 +251,12 @@ func (j *Json) Append(key string, value interface{}) *Json {
 	return j
 }
 
-func (j *Json) SetValue(value interface{}) *Json {
-	return j
-}
-
 func (j *Json) AppendValue(value interface{}) *Json {
+	switch d := j.data.(type) {
+	case *json_array:
+		d.append(value)
+	default:
+	}
 	return j
 }
 
@@ -249,10 +268,8 @@ func (j *Json) SetByPath(value interface{}, path ...string) *Json {
 		j.Set(path[0], value)
 	default:
 		use := j
-		fmt.Println(&use)
 		for i := 0; use != nil && i < l-1; i++ {
 			use = use.get_or_create_child(path[i])
-			fmt.Println(&use)
 		}
 		if use != nil {
 			use.Set(path[l-1], value)
@@ -269,16 +286,28 @@ func (j *Json) AppendByPath(value interface{}, path ...string) *Json {
 		j.Append(path[0], value)
 	default:
 		use := j
-		fmt.Println(&use)
 		for i := 0; use != nil && i < l-1; i++ {
 			use = use.get_or_create_child(path[i])
-			fmt.Println(&use)
 		}
 		if use != nil {
 			use.Append(path[l-1], value)
 		}
 	}
 	return j
+}
+
+func (j *Json) IsObject() (ret bool) {
+	_, ret = j.data.(*json_object)
+	return
+}
+
+func (j *Json) IsArray() (ret bool) {
+	_, ret = j.data.(*json_array)
+	return ret
+}
+
+func (j *Json) IsData() bool {
+	return !j.IsObject() && !j.IsArray()
 }
 
 func (j *Json) Merge(j2 *Json) *Json {

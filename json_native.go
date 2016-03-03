@@ -1,9 +1,6 @@
 package json
 
-import (
-	"encoding/json"
-	"fmt"
-)
+import ()
 
 type (
 	json_value  interface{}
@@ -67,14 +64,28 @@ func (j *Json) get_child_by_key(key string) *Json {
 		if obj == nil {
 			return nil
 		} else {
-			return &Json{obj}
+			switch obj.(type) {
+			case *json_array:
+				return &Json{obj}
+			case *json_object:
+				return &Json{obj}
+			default:
+				return &Json{create_json_array(obj)}
+			}
 		}
 	case *json_array:
 		obj := d.get_child_by_key(key, false)
 		if obj == nil {
 			return nil
 		} else {
-			return &Json{obj}
+			switch obj.(type) {
+			case *json_array:
+				return &Json{obj}
+			case *json_object:
+				return &Json{obj}
+			default:
+				return &Json{create_json_array(obj)}
+			}
 		}
 	default:
 		return nil
@@ -152,9 +163,9 @@ func (src *json_object) get_child_by_key(key string, create bool) json_value {
 
 func (src *json_array) get_child_by_key(key string, create bool) json_value {
 	arr := ([]json_value)(*src)
-	var use json_object = nil
+	var use *json_object = nil
 	for _, c := range arr {
-		if v, ok := c.(json_object); ok {
+		if v, ok := c.(*json_object); ok {
 			if use != nil {
 				return nil
 			}
@@ -192,28 +203,4 @@ func transform_from_map(src map[string]interface{}) json_value {
 		}
 	}
 	return ret
-}
-
-func TestJson() {
-	str := `{
-  "config": {"path": "./logs/", "format":"%T %L %N : %M"},
-  "server": [2,
-    "/var/www/html",
-	{"host":"192.168.1.10", "port":10000, "enable":false},
-	{"host":"192.168.1.11", "port":10000, "ha":null, "relay":{"host":"192.168.10.10", "port":20000}}
-  ]
-}`
-	str = `[{"path":"http://localhost/v1/aaa"}, {"path":"http://localhost:8080/v2/bbb", "delay":10}]`
-	//j := make(map[string]interface{})
-	var j interface{}
-	if err := json.Unmarshal([]byte(str), &j); err != nil {
-		fmt.Println("转换出错: ", err.Error())
-		return
-	}
-	fmt.Println(j)
-	fmt.Println("====================================")
-	fmt.Println(str)
-	fmt.Println("====================================")
-	fmt.Println(j)
-	//dump_map("", &j)
 }
