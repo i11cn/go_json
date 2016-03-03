@@ -2,41 +2,31 @@ package json
 
 import ()
 
-type (
-	json_value  interface{}
-	json_string string
-	json_number struct {
-		value interface{}
-	}
-	json_bool bool
+type ()
 
-	json_array  []json_value
-	json_object map[string]json_value
-)
-
-func create_json_array(value ...interface{}) *json_array {
-	ret := json_array{}
+func create_json_array(value ...interface{}) *[]interface{} {
+	ret := make([]interface{}, 0, 10)
 	for _, v := range value {
 		ret = append(ret, v)
 	}
 	return &ret
 }
 
-func create_json_object(key string, value interface{}) *json_object {
-	ret := map[string]json_value{}
+func create_json_object(key string, value interface{}) *map[string]interface{} {
+	ret := make(map[string]interface{})
 	ret[key] = value
-	return (*json_object)(&ret)
+	return &ret
 }
 
 func (j *Json) get_value() (ret interface{}, exist bool) {
 	ret = nil
 	exist = false
-	if d, ok := j.data.(*json_array); ok {
-		arr := []json_value(*d)
+	if d, ok := j.data.(*[]interface{}); ok {
+		arr := []interface{}(*d)
 		for _, v := range arr {
 			switch use := v.(type) {
-			case *json_array:
-			case *json_object:
+			case *[]interface{}:
+			case *map[string]interface{}:
 			default:
 				ret = use
 				exist = true
@@ -49,22 +39,22 @@ func (j *Json) get_value() (ret interface{}, exist bool) {
 
 func (j *Json) get_or_create_child(key string) *Json {
 	switch d := j.data.(type) {
-	case *json_object:
-		obj := d.get_child_by_key(key, false)
+	case *map[string]interface{}:
+		obj := get_object_child(d, key, false)
 		if obj == nil {
-			obj = &json_object{}
-			d.set(key, obj)
+			obj = new(map[string]interface{})
+			(*d)[key] = obj
 		}
 		return &Json{obj}
-	case *json_array:
-		obj := d.get_child_by_key(key, false)
+	case *[]interface{}:
+		obj := get_array_child(d, key, false)
 		if obj == nil {
-			obj = &json_object{}
-			d.set(key, obj)
+			obj = new(map[string]interface{})
+			set_array(d, key, obj)
 		}
 		return &Json{obj}
 	default:
-		obj := &json_object{}
+		obj := new(map[string]interface{})
 		j.data = create_json_array(d, create_json_object(key, obj))
 		return &Json{obj}
 	}
@@ -72,29 +62,29 @@ func (j *Json) get_or_create_child(key string) *Json {
 
 func (j *Json) get_child_by_key(key string) *Json {
 	switch d := j.data.(type) {
-	case *json_object:
-		obj := d.get_child_by_key(key, false)
+	case *map[string]interface{}:
+		obj := get_object_child(d, key, false)
 		if obj == nil {
 			return nil
 		} else {
 			switch obj.(type) {
-			case *json_array:
+			case *[]interface{}:
 				return &Json{obj}
-			case *json_object:
+			case *map[string]interface{}:
 				return &Json{obj}
 			default:
 				return &Json{create_json_array(obj)}
 			}
 		}
-	case *json_array:
-		obj := d.get_child_by_key(key, false)
+	case *[]interface{}:
+		obj := get_array_child(d, key, false)
 		if obj == nil {
 			return nil
 		} else {
 			switch obj.(type) {
-			case *json_array:
+			case *[]interface{}:
 				return &Json{obj}
-			case *json_object:
+			case *map[string]interface{}:
 				return &Json{obj}
 			default:
 				return &Json{create_json_array(obj)}
@@ -105,11 +95,11 @@ func (j *Json) get_child_by_key(key string) *Json {
 	}
 }
 
-func (a *json_array) set(key string, value interface{}) {
-	d := ([]json_value)(*a)
-	var use *json_object = nil
+func set_array(a *[]interface{}, key string, value interface{}) {
+	d := ([]interface{})(*a)
+	var use *map[string]interface{} = nil
 	for _, u := range d {
-		if m, ok := u.(*json_object); ok {
+		if m, ok := u.(*map[string]interface{}); ok {
 			if use != nil {
 				return
 			}
@@ -117,17 +107,17 @@ func (a *json_array) set(key string, value interface{}) {
 		}
 	}
 	if use != nil {
-		use.set(key, value)
+		(*use)[key] = value
 	} else {
-		a.append(create_json_object(key, value))
+		append_array(a, create_json_object(key, value))
 	}
 }
 
-func (a *json_array) set_or_append(key string, value interface{}) {
-	d := ([]json_value)(*a)
-	var use *json_object = nil
+func set_or_append_array(a *[]interface{}, key string, value interface{}) {
+	d := ([]interface{})(*a)
+	var use *map[string]interface{} = nil
 	for _, u := range d {
-		if m, ok := u.(*json_object); ok {
+		if m, ok := u.(*map[string]interface{}); ok {
 			if use != nil {
 				return
 			}
@@ -135,26 +125,21 @@ func (a *json_array) set_or_append(key string, value interface{}) {
 		}
 	}
 	if use != nil {
-		use.append(key, value)
+		append_object(use, key, value)
 	} else {
-		a.append(create_json_object(key, value))
+		append_array(a, create_json_object(key, value))
 	}
 }
 
-func (a *json_array) append(value ...interface{}) *json_array {
+func append_array(a *[]interface{}, value ...interface{}) *[]interface{} {
 	for _, v := range value {
 		*a = append(*a, v)
 	}
 	return a
 }
 
-func (o *json_object) set(key string, value interface{}) {
-	use := (*map[string]json_value)(o)
-	(*use)[key] = value
-}
-
-func (o *json_object) append(key string, value interface{}) {
-	m := (*map[string]json_value)(o)
+func append_object(o *map[string]interface{}, key string, value interface{}) {
+	m := (*map[string]interface{})(o)
 	if use, exist := (*m)[key]; exist {
 		(*m)[key] = create_json_array(use, value)
 	} else {
@@ -162,58 +147,58 @@ func (o *json_object) append(key string, value interface{}) {
 	}
 }
 
-func (src *json_object) get_child_by_key(key string, create bool) json_value {
-	obj := (*map[string]json_value)(src)
+func get_object_child(src *map[string]interface{}, key string, create bool) interface{} {
+	obj := (*map[string]interface{})(src)
 	if data, exist := (*obj)[key]; exist {
 		return data
 	} else if create {
-		ret := create_json_object(key, json_object{})
+		ret := create_json_object(key, make(map[string]interface{}))
 		(*obj)[key] = ret
 		return ret
 	}
 	return nil
 }
 
-func (src *json_array) get_child_by_key(key string, create bool) json_value {
-	arr := ([]json_value)(*src)
-	var use *json_object = nil
+func get_array_child(src *[]interface{}, key string, create bool) interface{} {
+	arr := ([]interface{})(*src)
+	var use *map[string]interface{} = nil
 	for _, c := range arr {
-		if v, ok := c.(*json_object); ok {
+		if v, ok := c.(*map[string]interface{}); ok {
 			if use != nil {
 				return nil
 			}
 			use = v
 		}
 	}
-	return use.get_child_by_key(key, create)
+	return get_object_child(use, key, create)
 }
 
-func transform_from_array(src []interface{}) *json_array {
-	ret := &json_array{}
+func transform_from_array(src []interface{}) *[]interface{} {
+	ret := make([]interface{}, 0, 10)
 	for _, v := range src {
 		switch u := v.(type) {
 		case []interface{}:
-			ret.append(transform_from_array(u))
+			ret = append(ret, transform_from_array(u))
 		case map[string]interface{}:
-			ret.append(transform_from_map(u))
+			ret = append(ret, transform_from_map(u))
 		default:
-			ret.append(v)
+			ret = append(ret, v)
 		}
 	}
-	return ret
+	return &ret
 }
 
-func transform_from_map(src map[string]interface{}) json_value {
-	ret := &json_object{}
+func transform_from_map(src map[string]interface{}) interface{} {
+	ret := make(map[string]interface{})
 	for k, v := range src {
 		switch u := v.(type) {
 		case []interface{}:
-			ret.set(k, transform_from_array(u))
+			ret[k] = transform_from_array(u)
 		case map[string]interface{}:
-			ret.set(k, transform_from_map(u))
+			ret[k] = transform_from_map(u)
 		default:
-			ret.set(k, v)
+			ret[k] = v
 		}
 	}
-	return ret
+	return &ret
 }
