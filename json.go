@@ -48,7 +48,7 @@ type (
 )
 
 func NewJson() *Json {
-	return &Json{new(map[string]interface{})}
+	return &Json{make(map[string]interface{})}
 }
 
 func FromString(str string) (ret *Json, err error) {
@@ -261,7 +261,7 @@ func (j *Json) String() (ret string, ok bool) {
 		switch v := use.(type) {
 		case *[]interface{}:
 			ok = false
-		case *map[string]interface{}:
+		case map[string]interface{}:
 			ok = false
 		case string:
 			ret = v
@@ -272,31 +272,29 @@ func (j *Json) String() (ret string, ok bool) {
 	return
 }
 
-/*
 func (j *Json) Array() []Json {
 	ret := []Json{}
 	if arr, ok := j.data.(*[]interface{}); ok {
-		use := ([]interface{})(*arr)
-		for _, d := range use {
+		for _, d := range *arr {
 			switch d.(type) {
 			case *[]interface{}:
 				ret = append(ret, Json{d})
-			case *map[string]interface{}:
+			case map[string]interface{}:
 				ret = append(ret, Json{d})
 			default:
-				ret = append(ret, Json{create_[]interface{}(d)})
+				ret = append(ret, Json{create_json_array(d)})
 			}
 		}
 	}
 	return ret
 }
-*/
+
 func (j *Json) Set(key string, value interface{}) *Json {
 	switch v := j.data.(type) {
-	case *map[string]interface{}:
-		(*v)[key] = value
+	case map[string]interface{}:
+		v[key] = value
 	case *[]interface{}:
-		set_array(v, key, value)
+		*v = set_array(*v, key, value)
 	default:
 		j.data = create_json_array(v, create_json_object(key, value))
 	}
@@ -305,10 +303,10 @@ func (j *Json) Set(key string, value interface{}) *Json {
 
 func (j *Json) Append(key string, value interface{}) *Json {
 	switch v := j.data.(type) {
-	case *map[string]interface{}:
-		append_object(v, key, value)
+	case map[string]interface{}:
+		v = append_object(v, key, value)
 	case *[]interface{}:
-		set_or_append_array(v, key, value)
+		*v = set_or_append_array(*v, key, value)
 	default:
 		j.data = create_json_array(v, create_json_object(key, value))
 	}
@@ -318,7 +316,7 @@ func (j *Json) Append(key string, value interface{}) *Json {
 func (j *Json) AppendValue(value interface{}) *Json {
 	switch d := j.data.(type) {
 	case *[]interface{}:
-		append_array(d, value)
+		*d = append_array(*d, value)
 	default:
 	}
 	return j
@@ -361,12 +359,12 @@ func (j *Json) AppendByPath(value interface{}, path ...string) *Json {
 }
 
 func (j *Json) IsObject() (ret bool) {
-	_, ret = j.data.(*map[string]interface{})
+	_, ret = j.data.(map[string]interface{})
 	return
 }
 
 func (j *Json) IsArray() (ret bool) {
-	_, ret = j.data.(*[]interface{})
+	_, ret = j.data.([]interface{})
 	return ret
 }
 
