@@ -24,6 +24,8 @@ func (j *Json) get_value() (ret interface{}, exist bool) {
 			switch use := v.(type) {
 			case *[]interface{}:
 			case map[string]interface{}:
+			case []interface{}:
+				j.data = &j.data
 			default:
 				ret = use
 				exist = true
@@ -48,6 +50,15 @@ func (j *Json) get_or_create_child(key string) *Json {
 		if obj == nil {
 			obj = create_json_object(key, make(map[string]interface{}))
 			*d = append(*d, obj)
+		}
+		return &Json{obj}
+	case []interface{}:
+		j.data = &j.data
+		d2, _ := j.data.(*[]interface{})
+		obj := get_array_child(*d2, key, false)
+		if obj == nil {
+			obj = create_json_object(key, make(map[string]interface{}))
+			*d2 = append(*d2, obj)
 		}
 		return &Json{obj}
 	default:
@@ -83,6 +94,23 @@ func (j *Json) get_child_by_key(key string) *Json {
 				return &Json{obj}
 			case map[string]interface{}:
 				return &Json{obj}
+			default:
+				return &Json{create_json_array(obj)}
+			}
+		}
+	case []interface{}:
+		j.data = &j.data
+		obj := get_array_child(d, key, false)
+		if obj == nil {
+			return nil
+		} else {
+			switch obj.(type) {
+			case *[]interface{}:
+				return &Json{obj}
+			case map[string]interface{}:
+				return &Json{obj}
+			case []interface{}:
+				return &Json{&obj}
 			default:
 				return &Json{create_json_array(obj)}
 			}
@@ -159,34 +187,4 @@ func get_array_child(src []interface{}, key string, create bool) interface{} {
 		}
 	}
 	return get_object_child(use, key, create)
-}
-
-func transform_from_array(src []interface{}) *[]interface{} {
-	ret := make([]interface{}, 0, 10)
-	for _, v := range src {
-		switch u := v.(type) {
-		case []interface{}:
-			ret = append(ret, transform_from_array(u))
-		case map[string]interface{}:
-			ret = append(ret, transform_from_map(u))
-		default:
-			ret = append(ret, v)
-		}
-	}
-	return &ret
-}
-
-func transform_from_map(src map[string]interface{}) interface{} {
-	ret := make(map[string]interface{})
-	for k, v := range src {
-		switch u := v.(type) {
-		case []interface{}:
-			ret[k] = transform_from_array(u)
-		case map[string]interface{}:
-			ret[k] = transform_from_map(u)
-		default:
-			ret[k] = v
-		}
-	}
-	return ret
 }
