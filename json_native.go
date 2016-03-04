@@ -128,10 +128,6 @@ func set_or_append_array(a []interface{}, key string, value interface{}) []inter
 	return a
 }
 
-func append_array(a []interface{}, value ...interface{}) []interface{} {
-	return append(a, value...)
-}
-
 func append_object(o map[string]interface{}, key string, value interface{}) map[string]interface{} {
 	if use, exist := o[key]; exist {
 		o[key] = create_json_array(use, value)

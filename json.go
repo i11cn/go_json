@@ -316,7 +316,7 @@ func (j *Json) Append(key string, value interface{}) *Json {
 func (j *Json) AppendValue(value interface{}) *Json {
 	switch d := j.data.(type) {
 	case *[]interface{}:
-		*d = append_array(*d, value)
+		*d = append(*d, value)
 	default:
 	}
 	return j
