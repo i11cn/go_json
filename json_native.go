@@ -188,3 +188,38 @@ func get_array_child(src []interface{}, key string, create bool) interface{} {
 	}
 	return get_object_child(use, key, create)
 }
+
+func merge_to_map(dst map[string]interface{}, src interface{}) map[string]interface{} {
+	switch s := src.(type) {
+	case map[string]interface{}:
+		for k, v := range s {
+			if use, exist := dst[k]; exist {
+				dst[k] = merge(use, v)
+			} else {
+				dst[k] = v
+			}
+		}
+	case *[]interface{}:
+	case []interface{}:
+	default:
+	}
+	return dst
+}
+
+func merge_to_array(dst []interface{}, src interface{}) []interface{} {
+	switch s := src.(type) {
+	case map[string]interface{}:
+	case *[]interface{}:
+	case []interface{}:
+	default:
+	}
+	return dst
+}
+
+func merge(dst, src interface{}) interface{} {
+	// 如果两方都是map，按key逐项合并，相同key，再做merge处理
+	// 如果dst是array，查找其中是否有map，如有，对俩map做merge
+	// 如果没有，将src追加到dst的array中
+	// 如果dst什么都不是，而
+	return dst
+}

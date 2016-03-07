@@ -387,5 +387,6 @@ func (j *Json) IsData() bool {
 }
 
 func (j *Json) Merge(j2 *Json) *Json {
+	j.data = merge(j.data, j2.data)
 	return j
 }
