@@ -385,15 +385,3 @@ func (j *Json) IsArray() (ret bool) {
 func (j *Json) IsData() bool {
 	return !j.IsObject() && !j.IsArray()
 }
-
-// Merge的基本原则：遇到冲突，尽可能的追加，最有可能的结果是array
-func (j *Json) Merge(j2 *Json) *Json {
-	j.data = merge(j.data, j2.data)
-	return j
-}
-
-// Replace的基本原则：遇到冲突，尽可能的替换
-func (j *Json) Replace(j2 *Json) *Json {
-	j.data = replace(j.data, j2.data)
-	return j
-}
