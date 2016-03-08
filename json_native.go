@@ -189,7 +189,7 @@ func get_array_child(src []interface{}, key string, create bool) interface{} {
 	return get_object_child(use, key, create)
 }
 
-func merge_to_map(dst map[string]interface{}, src interface{}) map[string]interface{} {
+func merge_to_map(dst map[string]interface{}, src interface{}) interface{} {
 	switch s := src.(type) {
 	case map[string]interface{}:
 		for k, v := range s {
@@ -199,27 +199,167 @@ func merge_to_map(dst map[string]interface{}, src interface{}) map[string]interf
 				dst[k] = v
 			}
 		}
+		return dst
 	case *[]interface{}:
+		ret := make([]interface{}, 0, 10)
+		add_dst := true
+		for _, v := range *s {
+			if m, ok := v.(map[string]interface{}); ok {
+				ret = append(ret, merge_to_map(dst, m))
+				add_dst = false
+			} else {
+				ret = append(ret, v)
+			}
+		}
+		if add_dst {
+			ret = append(ret, dst)
+		}
+
+		return &ret
 	case []interface{}:
+		ret := make([]interface{}, 0, 10)
+		add_dst := true
+		for _, v := range s {
+			if m, ok := v.(map[string]interface{}); ok {
+				ret = append(ret, merge_to_map(dst, m))
+				add_dst = false
+			} else {
+				ret = append(ret, v)
+			}
+		}
+		if add_dst {
+			ret = append(ret, dst)
+		}
+		return &ret
 	default:
+		return create_json_array(dst, src)
+	}
+}
+
+func merge_to_array(dst *[]interface{}, src interface{}) *[]interface{} {
+	switch s := src.(type) {
+	case map[string]interface{}:
+		for _, v := range *dst {
+			if m, ok := v.(map[string]interface{}); ok {
+				merge(m, src)
+				return dst
+			}
+		}
+		*dst = append(*dst, src)
+	case *[]interface{}:
+		for _, v := range *s {
+			*dst = append(*dst, v)
+		}
+	case []interface{}:
+		for _, v := range s {
+			*dst = append(*dst, v)
+		}
+	default:
+		*dst = append(*dst, s)
 	}
 	return dst
 }
 
-func merge_to_array(dst []interface{}, src interface{}) []interface{} {
+func merge_to_value(dst interface{}, src interface{}) interface{} {
 	switch s := src.(type) {
-	case map[string]interface{}:
 	case *[]interface{}:
+		ret := make([]interface{}, 0, 10)
+		for _, v := range *s {
+			ret = append(ret, v)
+		}
+		return &ret
 	case []interface{}:
+		ret := make([]interface{}, 0, 10)
+		for _, v := range s {
+			ret = append(ret, v)
+		}
+		return &ret
 	default:
+		return create_json_array(dst, src)
 	}
-	return dst
 }
 
 func merge(dst, src interface{}) interface{} {
-	// 如果两方都是map，按key逐项合并，相同key，再做merge处理
-	// 如果dst是array，查找其中是否有map，如有，对俩map做merge
-	// 如果没有，将src追加到dst的array中
-	// 如果dst什么都不是，而
+	switch d := dst.(type) {
+	case map[string]interface{}:
+		return merge_to_map(d, src)
+	case *[]interface{}:
+		ret := merge_to_array(d, src)
+		return &ret
+	case []interface{}:
+		ret := merge_to_array(&d, src)
+		return &ret
+	default:
+		return merge_to_value(dst, src)
+	}
+}
+
+func replace_map(dst map[string]interface{}, src interface{}) interface{} {
+	switch s := src.(type) {
+	case map[string]interface{}:
+		for k, v := range s {
+			if use, exist := dst[k]; exist {
+				dst[k] = replace(use, v)
+			} else {
+				dst[k] = v
+			}
+		}
+		return dst
+	case []interface{}:
+		return &src
+	default:
+		return src
+	}
+}
+
+func replace_array(dst *[]interface{}, src interface{}) interface{} {
+	switch s := src.(type) {
+	case map[string]interface{}:
+		return src
+	case *[]interface{}:
+		for _, v := range *s {
+			*dst = append(*dst, v)
+		}
+	case []interface{}:
+		for _, v := range s {
+			*dst = append(*dst, v)
+		}
+	default:
+		*dst = append(*dst, s)
+	}
 	return dst
+}
+
+func replace_value(dst interface{}, src interface{}) interface{} {
+	switch s := src.(type) {
+	case *[]interface{}:
+		ret := make([]interface{}, 0, 10)
+		for _, v := range *s {
+			ret = append(ret, v)
+		}
+		return &ret
+	case []interface{}:
+		ret := make([]interface{}, 0, 10)
+		for _, v := range s {
+			ret = append(ret, v)
+		}
+		return &ret
+	default:
+		return create_json_array(dst, src)
+	}
+}
+
+func replace(dst, src interface{}) interface{} {
+	switch d := dst.(type) {
+	case map[string]interface{}:
+		return replace_map(d, src)
+	case *[]interface{}:
+		ret := replace_array(d, src)
+		return &ret
+	case []interface{}:
+		ret := replace_array(&d, src)
+		return &ret
+	default:
+		return replace_value(dst, src)
+	}
 }
