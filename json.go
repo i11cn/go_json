@@ -42,6 +42,30 @@ import (
 */
 
 type (
+	Json2 interface {
+		IsArray() bool
+		IsNil() bool
+
+		String() string
+		Array() []Json2
+		Float(...float32) (float32, bool)
+		Float64(...float64) (float64, bool)
+		Int(...int64) (int64, bool)
+		Uint(...uint64) (uint64, bool)
+		Bool(...bool) (bool, bool)
+
+		Exist(...string) bool
+		Get(...string) Json2
+		Set(interface{}, ...string) Json2
+		Append(interface{}, ...string) Json2
+		Keys() []string
+
+		Parse(string) error
+		MarshalJSON() ([]byte, error)
+	}
+)
+
+type (
 	Json struct {
 		data interface{}
 	}
@@ -79,9 +103,7 @@ func FromObject(src interface{}) *Json {
 	switch src.(type) {
 	case []interface{}:
 		return &Json{&src}
-	case map[string]interface{}:
-		return &Json{src}
-	case *[]interface{}:
+	case map[string]interface{}, *[]interface{}:
 		return &Json{src}
 	default:
 		return &Json{create_json_array(src)}
